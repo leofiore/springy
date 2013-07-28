@@ -95,13 +95,12 @@
 	};
 
 	Graph.prototype.addEdge = function(edge) {
-		var exists = false;
-		this.edges.forEach(function(e) {
-			if (edge.id === e.id) { exists = true; }
-		});
+		var exists = false, edges = this.edges;
+        for (var i=edges.length - 1; i >= 0; i--)
+			if (edge.id === edges[i].id) exists = true;
 
 		if (!exists) {
-			this.edges.push(edge);
+			edges.push(edge);
 		}
 
 		if (!(edge.source.id in this.adjacency)) {
@@ -130,11 +129,11 @@
 		for (var i = 0; i < arguments.length; i++) {
 			var e = arguments[i];
 			var node1 = this.nodeSet[e[0]];
-			if (node1 == undefined) {
+			if (node1 === undefined) {
 				throw new TypeError("invalid node name: " + e[0]);
 			}
 			var node2 = this.nodeSet[e[1]];
-			if (node2 == undefined) {
+			if (node2 === undefined) {
 				throw new TypeError("invalid node name: " + e[1]);
 			}
 			var attr = e[2];
@@ -186,16 +185,16 @@
 		}
 
 		if ('nodes' in json || 'edges' in json) {
-			this.addNodes.apply(this, json['nodes']);
-			this.addEdges.apply(this, json['edges']);
+			this.addNodes.apply(this, json.nodes);
+			this.addEdges.apply(this, json.edges);
 		}
-	}
+	};
 
 
 	// find the edges from node1 to node2
 	Graph.prototype.getEdges = function(node1, node2) {
-		if (node1.id in this.adjacency
-			&& node2.id in this.adjacency[node1.id]) {
+		if (node1.id in this.adjacency &&
+			node2.id in this.adjacency[node1.id]) {
 			return this.adjacency[node1.id][node2.id];
 		}
 
@@ -220,11 +219,10 @@
 	// removes edges associated with a given node
 	Graph.prototype.detachNode = function(node) {
 		var tmpEdges = this.edges.slice();
-		tmpEdges.forEach(function(e) {
-			if (e.source.id === node.id || e.target.id === node.id) {
-				this.removeEdge(e);
+        for (var i = tmpEdges.length - 1; i >= 0; i--)
+			if (tmpEdges[i].source.id === node.id || tmpEdges[i].target.id === node.id) {
+				this.removeEdge(tmpEdges[i]);
 			}
-		}, this);
 
 		this.notify();
 	};
@@ -248,7 +246,7 @@
 				}
 
 				// Clean up empty edge arrays
-				if (this.adjacency[x][y].length == 0) {
+				if (this.adjacency[x][y].length === 0) {
 					delete this.adjacency[x][y];
 				}
 			}
@@ -318,9 +316,9 @@
 	};
 
 	Graph.prototype.notify = function() {
-		this.eventListeners.forEach(function(obj){
-			obj.graphChanged();
-		});
+		//this.eventListeners.forEach(function(obj){
+		//	obj.graphChanged();
+		//});
 	};
 
 	// -----------
@@ -382,18 +380,44 @@
 
 	// callback should accept two arguments: Node, Point
 	Layout.ForceDirected.prototype.eachNode = function(callback) {
-		var t = this;
-		this.graph.nodes.forEach(function(n){
-			callback.call(t, n, t.point(n));
-		});
+		var t = this, nodes = this.graph.nodes,
+            i = Math.ceil(nodes.length / 8), n = 0, caseTest = nodes.length % 8;
+        if (!nodes.length) return;
+        do {
+            switch(caseTest) {
+                case 0: callback.call(t, nodes[n], t.point(nodes[n++]));
+                case 7: callback.call(t, nodes[n], t.point(nodes[n++]));
+                case 6: callback.call(t, nodes[n], t.point(nodes[n++]));
+                case 5: callback.call(t, nodes[n], t.point(nodes[n++]));
+                case 4: callback.call(t, nodes[n], t.point(nodes[n++]));
+                case 3: callback.call(t, nodes[n], t.point(nodes[n++]));
+                case 2: callback.call(t, nodes[n], t.point(nodes[n++]));
+                case 1: callback.call(t, nodes[n], t.point(nodes[n++]));
+            }
+            caseTest = 0;
+        }
+        while (--i > 0);
 	};
 
 	// callback should accept two arguments: Edge, Spring
 	Layout.ForceDirected.prototype.eachEdge = function(callback) {
-		var t = this;
-		this.graph.edges.forEach(function(e){
-			callback.call(t, e, t.spring(e));
-		});
+		var t = this, edges = this.graph.edges,
+            i = Math.ceil(edges.length / 8), n = 0, caseTest = edges.length % 8;
+        if (!edges.length) return;
+        do {
+            switch(caseTest) {
+                case 0: callback.call(t, edges[n], t.spring(edges[n++]));
+                case 7: callback.call(t, edges[n], t.spring(edges[n++]));
+                case 6: callback.call(t, edges[n], t.spring(edges[n++]));
+                case 5: callback.call(t, edges[n], t.spring(edges[n++]));
+                case 4: callback.call(t, edges[n], t.spring(edges[n++]));
+                case 3: callback.call(t, edges[n], t.spring(edges[n++]));
+                case 2: callback.call(t, edges[n], t.spring(edges[n++]));
+                case 1: callback.call(t, edges[n], t.spring(edges[n++]));
+            }
+            caseTest = 0;
+        }
+        while (--i > 0);
 	};
 
 	// callback should accept one argument: Spring
@@ -414,10 +438,14 @@
 					var d = point1.p.subtract(point2.p);
 					var distance = d.magnitude() + 0.1; // avoid massive forces at small distances (and divide by zero)
 					var direction = d.normalise();
+                    var a = direction.multiply(this.repulsion), b = direction.multiply(this.repulsion);
+                    a.divideby(distance * distance * 0.5);
+                    b.divideby(distance * distance * -0.5);
+
 
 					// apply force to each end point
-					point1.applyForce(direction.multiply(this.repulsion).divide(distance * distance * 0.5));
-					point2.applyForce(direction.multiply(this.repulsion).divide(distance * distance * -0.5));
+					point1.applyForce(a);
+					point2.applyForce(b);
 				}
 			});
 		});
@@ -462,13 +490,14 @@
 
 	// Calculate the total kinetic energy of the system
 	Layout.ForceDirected.prototype.totalEnergy = function(timestep) {
-		var energy = 0.0;
-		this.eachNode(function(node, point) {
+		var energy = 0.0, p = this.point, nodes = this.graph.nodes;
+        for (var i = nodes.length - 1, point = null; i >= 0; i--){
+            point = p.call(this, nodes[i]);
 			var speed = point.v.magnitude();
 			energy += 0.5 * point.m * speed * speed;
-		});
+		}
 
-		return energy;
+		return energy.toFixed(3);
 	};
 
 	var __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; }; // stolen from coffeescript, thanks jashkenas! ;-)
@@ -491,19 +520,23 @@
 		this._started = true;
 		this._stop = false;
 
+        t.updateVelocity(0.01);
+        t.updatePosition(0.01);
 		Springy.requestAnimationFrame(function step() {
 			t.applyCoulombsLaw();
 			t.applyHookesLaw();
 			t.attractToCentre();
-			t.updateVelocity(0.03);
-			t.updatePosition(0.03);
+            if (t.totalEnergy() > 0.01) {
+                t.updateVelocity(0.03);
+                t.updatePosition(0.03);
+            }
 
 			if (render !== undefined) {
 				render();
 			}
 
 			// stop simulation when energy of the system goes below a threshold
-			if (t._stop || t.totalEnergy() < 0.01) {
+			if (t._stop || t.totalEnergy() < 0.05) {
 				t._started = false;
 				if (done !== undefined) { done(); }
 			} else {
@@ -514,7 +547,7 @@
 
 	Layout.ForceDirected.prototype.stop = function() {
 		this._stop = true;
-	}
+	};
 
 	// Find the nearest point to a particular position
 	Layout.ForceDirected.prototype.nearest = function(pos) {
@@ -554,7 +587,10 @@
 
 		var padding = topright.subtract(bottomleft).multiply(0.07); // ~5% padding
 
-		return {bottomleft: bottomleft.subtract(padding), topright: topright.add(padding)};
+		//return {bottomleft: bottomleft.subtract(padding), topright: topright.add(padding)};
+        bottomleft.subtractby(padding);
+        topright.subtractby(padding);
+		return {bottomleft: bottomleft, topright: topright};
 	};
 
 
@@ -572,9 +608,19 @@
 		return new Vector(this.x + v2.x, this.y + v2.y);
 	};
 
+    Vector.prototype.addby = function(v2) {
+        this.x += v2.x;
+        this.y += v2.y;
+    };
+
 	Vector.prototype.subtract = function(v2) {
 		return new Vector(this.x - v2.x, this.y - v2.y);
 	};
+
+    Vector.prototype.subtractby = function(v2) {
+        this.x -= v2.x;
+        this.y -= v2.y;
+    };
 
 	Vector.prototype.multiply = function(n) {
 		return new Vector(this.x * n, this.y * n);
@@ -584,8 +630,13 @@
 		return new Vector((this.x / n) || 0, (this.y / n) || 0); // Avoid divide by zero errors..
 	};
 
+	Vector.prototype.divideby = function(n) {
+		this.x = (this.x / n) || 0;
+        this.y = (this.y / n) || 0; // Avoid divide by zero errors..
+	};
+
 	Vector.prototype.magnitude = function() {
-		return Math.sqrt(this.x*this.x + this.y*this.y);
+		return Math.sqrt(this.x * this.x + this.y * this.y);
 	};
 
 	Vector.prototype.normal = function() {
@@ -605,7 +656,8 @@
 	};
 
 	Layout.ForceDirected.Point.prototype.applyForce = function(force) {
-		this.a = this.a.add(force.divide(this.m));
+		//this.a = this.a.add(force.divide(this.m));
+        this.a.addby(force.divide(this.m));
 	};
 
 	// Spring
@@ -618,11 +670,11 @@
 
 	// Layout.ForceDirected.Spring.prototype.distanceToPoint = function(point)
 	// {
-	// 	// hardcore vector arithmetic.. ohh yeah!
-	// 	// .. see http://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment/865080#865080
-	// 	var n = this.point2.p.subtract(this.point1.p).normalise().normal();
-	// 	var ac = point.p.subtract(this.point1.p);
-	// 	return Math.abs(ac.x * n.x + ac.y * n.y);
+    //  // hardcore vector arithmetic.. ohh yeah!
+    //  // .. see http://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment/865080#865080
+    //  var n = this.point2.p.subtract(this.point1.p).normalise().normal();
+    //  var ac = point.p.subtract(this.point1.p);
+    //  return Math.abs(ac.x * n.x + ac.y * n.y);
 	// };
 
 	// Renderer handles the layout rendering loop
@@ -633,7 +685,7 @@
 		this.drawNode = drawNode;
 
 		this.layout.graph.addGraphListener(this);
-	}
+	};
 
 	Renderer.prototype.graphChanged = function(e) {
 		this.start();
@@ -663,7 +715,7 @@
 	if ( !Array.prototype.forEach ) {
 		Array.prototype.forEach = function( callback, thisArg ) {
 			var T, k;
-			if ( this == null ) {
+			if ( this === null ) {
 				throw new TypeError( " this is null or not defined" );
 			}
 			var O = Object(this);
