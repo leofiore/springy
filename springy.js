@@ -336,7 +336,16 @@
 	Layout.ForceDirected.prototype.point = function(node) {
 		if (!(node.id in this.nodePoints)) {
 			var mass = (node.data.mass !== undefined) ? node.data.mass : 1.0;
-			this.nodePoints[node.id] = new Layout.ForceDirected.Point(Vector.random(), mass);
+
+			var hasParentPosition = (node.data.parent !== undefined
+				&& node.data.parent.data.position !== undefined);
+
+			var position = hasParentPosition ?
+				node.data.parent.data.position.p.add(Vector.random().multiply(1.2)) :
+				Vector.random();
+
+			node.data.position = new Layout.ForceDirected.Point(position, mass);
+			this.nodePoints[node.id] = node.data.position;
 		}
 
 		return this.nodePoints[node.id];
@@ -536,7 +545,7 @@
 			}
 
 			// stop simulation when energy of the system goes below a threshold
-			if (t._stop || t.totalEnergy() < 0.05) {
+			if (t._stop || t.totalEnergy() < 0.03) {
 				t._started = false;
 				if (done !== undefined) { done(); }
 			} else {
