@@ -461,15 +461,20 @@
 	};
 
 	Layout.ForceDirected.prototype.applyHookesLaw = function() {
-		this.eachSpring(function(spring){
+        for (var edges = this.graph.edges, i = edges.length - 1; i >= 0; i--) {
+            var edge = edges[i], spring = this.spring(edge);
+		//this.eachSpring(function(spring){
 			var d = spring.point2.p.subtract(spring.point1.p); // the direction of the spring
 			var displacement = spring.length - d.magnitude();
 			var direction = d.normalise();
+            var adj1 = this.graph.adjacency[edge.source.id];
+            var adj2 = this.graph.adjacency[edge.target.id];
 
 			// apply force to each end point
-			spring.point1.applyForce(direction.multiply(spring.k * displacement * -0.5));
-			spring.point2.applyForce(direction.multiply(spring.k * displacement * 0.5));
-		});
+			spring.point1.applyForce(direction.multiply(spring.k * displacement * -0.5).divide(adj2 && adj2.length || 1));
+			spring.point2.applyForce(direction.multiply(spring.k * displacement * 0.5).divide(adj1 && adj1.length || 1));
+		//});
+        }
 	};
 
 	Layout.ForceDirected.prototype.attractToCentre = function() {
@@ -506,7 +511,7 @@
 			energy += 0.5 * point.m * speed * speed;
 		}
 
-		return energy.toFixed(3);
+		return energy; //.toFixed(3);
 	};
 
 	var __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; }; // stolen from coffeescript, thanks jashkenas! ;-)
@@ -529,13 +534,16 @@
 		this._started = true;
 		this._stop = false;
 
-        t.updateVelocity(0.01);
-        t.updatePosition(0.01);
+        //t.updateVelocity(0.01);
+        //t.updatePosition(0.01);
+        var tstart = Date.now();
 		Springy.requestAnimationFrame(function step() {
-			t.applyCoulombsLaw();
-			t.applyHookesLaw();
-			t.attractToCentre();
-            if (t.totalEnergy() > 0.01) {
+            var tstop = Date.now(),
+                tdelta = tstop - tstart;
+            if (tdelta > 15) {
+                t.applyCoulombsLaw();
+                t.applyHookesLaw();
+                t.attractToCentre();
                 t.updateVelocity(0.03);
                 t.updatePosition(0.03);
             }
@@ -545,7 +553,8 @@
 			}
 
 			// stop simulation when energy of the system goes below a threshold
-			if (t._stop || t.totalEnergy() < 0.03) {
+            tstart = tstop;
+			if (t._stop || t.totalEnergy() < 0.01) {
 				t._started = false;
 				if (done !== undefined) { done(); }
 			} else {
